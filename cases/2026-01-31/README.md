@@ -79,8 +79,6 @@ alert http any any -> any any (
 
 5. **Identity correlation via Kerberos + SMB strengthens attribution confidence.** Cross-referencing `AS-REQ` account activity with SMB `Query User Info` gave two independent data sources confirming the same user, reducing the chance of misattributing the incident to the wrong person or a shared/service account.
 
-6. **Alert lag (4 days between infection and alert) is a gap worth closing.** The infection occurred on 2026-01-27 but wasn't alerted until 2026-01-31. This detection latency should be reviewed — consider tuning alert thresholds or adding earlier-stage detections (e.g., the WebRTC fingerprinting signal above) to shrink dwell time.
-
 ## Recommended Next Steps
 
 - [ ] Isolate and re-image `DESKTOP-ES9F3ML`
