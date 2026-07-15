@@ -24,5 +24,5 @@ Every investigation in this lab follows a standardized pipeline:
 └── cases/            # Root directory for all investigations
     └── [Case-Name]/
         ├── README.md # Specific Incident Report for the case
-        ├── pcap/     # Captured traffic files for the case
+        ├── PCAPs/     # Captured traffic files for the case
         └── images/   # Visual evidence, flow diagrams, and screenshots
