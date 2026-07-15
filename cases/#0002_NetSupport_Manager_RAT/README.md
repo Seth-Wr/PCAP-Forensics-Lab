@@ -15,7 +15,7 @@
 | **Triggering Alert** | NetSupport Manager RAT Signature detected |
 
 ## Summary
-The endpoint `10.2.28.88` triggered a SIEM alert for a **NetSupport Manager RAT signature**. Packet capture analysis confirmed a successful outbound C2 channel to `45.131.214.85` (domain `vadusa.xyz`), consisting of HTTP (not TLS) traffic on port 443 with a `CMD=POLL` heartbeat repeating at ~1-second intervals, followed by gzip-encoded data exfiltration/command traffic. The infection was already active at the start of capture, so the initial access vector could not be determined from network evidence alone.
+The endpoint `10.2.28.88` triggered a SIEM alert for a **NetSupport Manager RAT signature**. Packet capture analysis confirmed a successful outbound C2 channel to `45.131.214.85` (domain `vadusa.xyz`), consisting of HTTP (not TLS) traffic on port 443 with a `CMD=POLL` heartbeat repeating at ~1-minute intervals, followed by gzip-encoded data exfiltration/command traffic. The infection was already active at the start of capture, so the initial access vector could not be determined from network evidence alone.
 
 ## Investigation Steps
 
@@ -48,13 +48,13 @@ The endpoint `10.2.28.88` triggered a SIEM alert for a **NetSupport Manager RAT 
   `INFO=1`
   `ACK=1`
 - Subsequent POST requests contained a URL-encoded binary blob consistent with gzip-compressed data (non-printable/encoded content, not human-readable parameters).
-- POST requests to the C2 IP repeated at approximately 1-second intervals — a consistent, automated beaconing cadence consistent with RAT/backdoor check-in behavior rather than normal application traffic.
+- POST requests to the C2 IP repeated at approximately 1-minute intervals — a consistent, automated beaconing cadence consistent with RAT/backdoor check-in behavior rather than normal application traffic.
 
 ## MITRE ATT&CK Mapping
 | Tactic | Technique | Description |
 |---|---|---|
 | Command and Control | T1071.001 – Web Protocols | Confirmed use of HTTP POST requests over port 443 to communicate with the remote C2 server (no TLS handshake present despite the port). |
-| Command and Control | T1071.003 – Beaconing | `CMD=POLL` heartbeat repeating at ~1-second intervals is an aggressive, automated beaconing pattern. |
+| Command and Control | T1071.003 – Beaconing | `CMD=POLL` heartbeat repeating at ~1-minute intervals is an aggressive, automated beaconing pattern. |
 | Execution / Persistence | T1547.001 – Boot or Logon Autostart Execution | *Inferred, not directly observed.* Beaconing was already active at capture start with no user-driven trigger seen; host-based artifacts (registry/startup items) would be needed to confirm an autostart mechanism. |
 | Exfiltration | T1041 – Exfiltration Over C2 Channel | Gzip-encoded binary blobs sent via POST body are consistent with data exfiltration or delivery of command payloads over the same channel. |
 | Discovery | T1082 – System Information Discovery | `INFO=1` / `ACK=1` parameters in the beacon suggest the implant is reporting status/environment data to the C2 server. |
@@ -67,7 +67,7 @@ The endpoint `10.2.28.88` triggered a SIEM alert for a **NetSupport Manager RAT 
 | Domain (unconfirmed / needs validation) | `fd-api-iris.trafficmanager.net` |
 | File Hash (SHA256) | Not recovered — payload delivery not present in capture window |
 | URI / Body Pattern | `CMD=POLL` / `INFO=1` / `ACK=1` beacon body; gzip-encoded POST body on follow-up requests |
-| Behavioral | HTTP POST beacon on port 443 with no TLS Client Hello, ~1-second interval |
+| Behavioral | HTTP POST beacon on port 443 with no TLS Client Hello, ~1-minute interval |
 
 ## Detection Recommendation
 Create SIEM/IDS detections for (1) the specific beacon body signature, and (2) the broader behavioral pattern of plaintext HTTP masquerading on port 443, since the exact C2 body pattern may change across campaigns but the protocol mismatch and cadence are harder for an attacker to disguise.
@@ -94,15 +94,15 @@ alert tcp any any -> any 443 (
 
 # Example pseudo-rule 3: fixed-interval beaconing (tune threshold to environment baseline)
 alert tcp $HOME_NET any -> 45.131.214.85 any (
-    msg:"C2 Beaconing - consistent ~1s interval to known bad IP";
-    threshold:type threshold, track by_src, count 30, seconds 30;
+    msg:"C2 Beaconing - consistent ~1m interval to known bad IP";
+    threshold:type threshold, track by_src, count 5, seconds 300;
     classtype:trojan-activity;
     sid:1000003; rev:1;
 )
 ```
 
 ## Lessons Learned
-1. **Beacon cadence is a strong, durable signal.** Fixed-interval traffic (here, ~1 second) is unusual for legitimate applications and is often more reliable to detect than payload content, which attackers rotate more frequently. Build interval-based anomaly rules, not just signature/IOC rules.
+1. **Beacon cadence is a strong, durable signal.** Fixed-interval traffic (here, ~1 minute) is unusual for legitimate applications and is often more reliable to detect than payload content, which attackers rotate more frequently. Build interval-based anomaly rules, not just signature/IOC rules.
 2. **Protocol-port mismatches are high-value detections.** Traffic on port 443 with no TLS Client Hello is a strong indicator of plaintext C2 tunneling through a "trusted" port. This generalizes to any well-known port being used for a different protocol than expected.
 3. **Don't trust a single identity-correlation source.** DHCP Option 12 returned an unrelated hostname (`brads-MBP`) for a different host in the same capture. Triangulating identity across Kerberos, NBNS, and SAMR traffic prevented misattributing the incident to the wrong asset.
 4. **Network evidence alone can't establish causality for adjacent events.** The `.gov`-styled DNS query occurring seconds before the malicious resolution is suspicious but not proof of a masquerading technique without host-based (process/socket) correlation. Reports should flag such timing correlations as leads, not conclusions.
